@@ -1,5 +1,8 @@
 import pygame
 
+from launch_point import LaunchPoint
+
+
 class Simulation:
     def __init__(self, debug_mode=False, width=800, height=600):
         self.debug_mode = debug_mode
@@ -7,6 +10,7 @@ class Simulation:
         self.font = pygame.font.Font(None, 18)  # Создание объекта шрифта
         self.rockets = []
         self.buildings = [(200, 550, 50, 50), (400, 530, 70, 70), (600, 560, 40, 40)]  # Примеры зданий (x, y, width, height)
+        self.launch_points = []
         self.width = width
         self.height = height
         pygame.init()
@@ -20,6 +24,15 @@ class Simulation:
     def add_rocket(self, rocket):
         self.rockets.append(rocket)
 
+    def add_launch_point(self, launch_point: LaunchPoint):
+        launch_point.add_simulation(self)
+        self.launch_points.append(launch_point)
+
+    def add_launch_points(self, launch_points: [LaunchPoint]):
+        for launch_point in launch_points:
+            launch_point.add_simulation(self)
+        self.launch_points.extend(launch_points)
+
     def display_state(self):
         self.screen.fill((255, 255, 255))  # Заливаем фон белым
 
@@ -28,16 +41,23 @@ class Simulation:
         for building in self.buildings:
             pygame.draw.rect(self.screen, (128, 128, 128), pygame.Rect(*building))  # Здания
 
+        for launch_point in self.launch_points:
+            launch_point.update(1)
 
         if self.debug_mode:
+            self.draw_text(f"game ticks: {pygame.time.get_ticks()}", (280, 0), (0, 0, 255))
+
             for i, rocket in enumerate(self.rockets):
                 color = (0, 0, 255) if i == 0 else (255, 0, 0)
                 # Рисуем пройденную траекторию
                 if len(rocket.path) > 1:
                     pygame.draw.lines(self.screen, color, False, rocket.path, 1)
+                    for point in rocket.path:
+                        pygame.draw.rect(self.screen, color, pygame.Rect(point[0] - 5, point[1] - 5, 10, 10))
+
 
                 # Отображаем скорость и ускорение
-                self.draw_text(f"Velocity: {rocket.velocity}", (400, 0 + i * 40), color)
+                self.draw_text(f"Velocity: {rocket.velocity}, Position: {rocket.position}", (400, 0 + i * 40), color)
                 self.draw_text(f"Acceleration: {rocket.acceleration}, is on: {rocket.acceleration_time < rocket.max_acceleration_time}, is destroyed: {rocket.is_destroyed}", (400, 15 + i * 40), color)
 
         for i, rocket in enumerate(self.rockets):

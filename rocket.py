@@ -1,41 +1,71 @@
+import numpy as np
+
+float_formatter = "{:.2f}".format
+np.set_printoptions(formatter={'float_kind':float_formatter})
+
+
 class Rocket:
-    def __init__(self, position, velocity, acceleration, max_acceleration_time, rocket_type, deceleration=0.2, gravity=-0.1, impact_radius=50):
-        self.position = position
-        self.velocity = velocity
-        self.path = [position]  # Добавляем начальное положение в путь
-        self.acceleration = acceleration
-        self.max_acceleration_time = max_acceleration_time
-        self.acceleration_time = 0
-        self.gravity = gravity
-        self.deceleration = deceleration
-        self.rocket_type = rocket_type  # 'attacking' или 'defense'
+    def __init__(self, position, velocity, acceleration, max_acceleration_time, rocket_type, deceleration=1.2, gravity=-9.81,
+                 impact_radius=50, id=1):
+        self.id = id
+        self.position = np.array(position, dtype=float)  # Текущая позиция ракеты (x, y)
+        self.velocity = np.array(velocity, dtype=float)  # Текущая скорость ракеты (vx, vy)
+        self.launch_point = None
+        self.path = []  # Добавляем начальное положение в путь
+        self.acceleration = acceleration  # Скалярное ускорение ракеты
+        self.max_acceleration_time = max_acceleration_time  # Время ускорения
+        self.acceleration_time = 0  # Текущее время ускорения
+        self.gravity = gravity  # Гравитация, воздействующая на ракету
+        self.deceleration = deceleration  # Замедление ракеты
+        self.rocket_type = rocket_type  # Тип ракеты (например, 'defense' или 'enemy')
+        # self.rocket_type = launch_point.launch_type  # Тип ракеты (например, 'defense' или 'enemy')
         self.impact_radius = impact_radius  # Радиус поражения для ракет ПВО
         self.is_destroyed = False  # Статус уничтожения ракеты
 
-    def update(self, time_delta):
+    def set_launching_point(self, launch_point):
+        self.launch_point = launch_point
+
+    def set_position(self, position):
+        self.position = np.array(position, dtype=float)  # Текущая позиция ракеты (x, y)
+        self.path = [position]
+
+    def update(self, time_step):
         # Добавим проверку, не уничтожена ли ракета
         if self.is_destroyed:
             return  # Не обновляем положение или скорость уничтоженной ракеты
 
+        if self.id == 2:
+
+            print(f"Velocity vector: {self.velocity}, module: {np.linalg.norm(self.velocity)}")
+            print(f"Gravity vector: {(0, self.gravity)}")
+            print(f"Acceleration vector: {self.normalize(self.velocity) * self.acceleration}")
+
+        # Обновление вектора скорости в зависимости от ускорения и гравитации
         if self.acceleration_time < self.max_acceleration_time:
-            self.velocity = tuple(v + a * time_delta for v, a in zip(self.velocity, self.acceleration))
-            self.acceleration_time += time_delta
+            # Направление ускорения совпадает с текущим направлением скорости
+            acceleration_vector = self.normalize(self.velocity) * self.acceleration
+            self.velocity += acceleration_vector * time_step
+            self.acceleration_time += time_step
         else:
-            # Применение замедления после исчерпания топлива
-            vx, vy = self.velocity
-            vx = max(vx - self.deceleration * time_delta, 0) if vx > 0 else min(vx + self.deceleration * time_delta, 0)
-            vy -= self.deceleration * time_delta
-            self.velocity = (vx, vy)
+            # Учет замедления (сопротивление воздуха)
+            deceleration_vector = -self.normalize(self.velocity) * self.deceleration
+            self.velocity += deceleration_vector * time_step
 
-        # Применение гравитации к вертикальной скорости
-        vx, vy = self.velocity
-        vy += self.gravity * time_delta
-        self.velocity = (vx, vy)
+        # Воздействие гравитации на ракету
+        gravity_vector = (0, self.gravity)
+        self.velocity += np.array(gravity_vector) * time_step
 
-        # Обновление положения
-        self.position = tuple(p + v * time_delta for p, v in zip(self.position, self.velocity))
-        self.path.append(self.position)
+        # Обновление позиции ракеты
+        self.position += self.velocity * time_step
+        self.path.append([float(i) for i in self.position])
 
+    @staticmethod
+    def normalize(vector):
+        # Нормализация вектора для получения направления
+        norm = np.linalg.norm(vector)
+        if norm == 0:
+            return vector
+        return vector / norm
 
     def destroy(self):
         # Логика уничтожения ракеты
@@ -46,6 +76,11 @@ class Rocket:
         # Проверяем, не уничтожена ли ракета
         if self.is_destroyed or other_rocket.is_destroyed:
             return False
+        if self.rocket_type == other_rocket.rocket_type:
+            return False
+        # if self.position[1] < 0:
+        #     return True
+
 
         # Расчет расстояния между ракетами
         distance = ((self.position[0] - other_rocket.position[0]) ** 2 + (self.position[1] - other_rocket.position[1]) ** 2) ** 0.5
