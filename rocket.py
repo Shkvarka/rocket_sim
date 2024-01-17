@@ -1,3 +1,6 @@
+import copy
+import math
+
 import numpy as np
 
 float_formatter = "{:.2f}".format
@@ -5,13 +8,16 @@ np.set_printoptions(formatter={'float_kind':float_formatter})
 
 
 class Rocket:
-    def __init__(self, position, velocity, acceleration, max_acceleration_time, rocket_type, deceleration=1.2, gravity=-9.81,
+    def __init__(self, position, start_velocity_scalar,acceleration, max_acceleration_time, rocket_type, deceleration=1.2, gravity=9.81,
                  impact_radius=50, id=1):
         self.id = id
         self.position = np.array(position, dtype=float)  # Текущая позиция ракеты (x, y)
-        self.velocity = np.array(velocity, dtype=float)  # Текущая скорость ракеты (vx, vy)
+        self.angle = None
+        self.start_velocity_scalar = start_velocity_scalar
+        self.velocity = np.array([0, 0], dtype=float)  # Текущая скорость ракеты (vx, vy)
         self.launch_point = None
         self.path = []  # Добавляем начальное положение в путь
+        self.trajectory = []
         self.acceleration = acceleration  # Скалярное ускорение ракеты
         self.max_acceleration_time = max_acceleration_time  # Время ускорения
         self.acceleration_time = 0  # Текущее время ускорения
@@ -28,17 +34,27 @@ class Rocket:
     def set_position(self, position):
         self.position = np.array(position, dtype=float)  # Текущая позиция ракеты (x, y)
         self.path = [position]
+    def set_velocity(self, velocity):
+        self.velocity = np.array(velocity, dtype=float)
 
+    def set_trajectory(self, trajectory):
+        self.trajectory = trajectory
+    def set_angle(self, angle):
+        self.angle = angle
+        angle_rad = math.radians(self.angle)
+        missile_vx = self.start_velocity_scalar * math.cos(angle_rad)
+        missile_vy = -1 * self.start_velocity_scalar * math.sin(angle_rad)  # -1 for pygame coordinate system
+        self.velocity = np.array([missile_vx, missile_vy], dtype=float)
     def update(self, time_step):
         # Добавим проверку, не уничтожена ли ракета
         if self.is_destroyed:
             return  # Не обновляем положение или скорость уничтоженной ракеты
 
-        if self.id == 2:
-
-            print(f"Velocity vector: {self.velocity}, module: {np.linalg.norm(self.velocity)}")
-            print(f"Gravity vector: {(0, self.gravity)}")
-            print(f"Acceleration vector: {self.normalize(self.velocity) * self.acceleration}")
+        # if self.id == 2:
+        #
+        #     print(f"Velocity vector: {self.velocity}, module: {np.linalg.norm(self.velocity)}")
+        #     print(f"Gravity vector: {(0, self.gravity)}")
+        #     print(f"Acceleration vector: {self.normalize(self.velocity) * self.acceleration}")
 
         # Обновление вектора скорости в зависимости от ускорения и гравитации
         if self.acceleration_time < self.max_acceleration_time:
@@ -90,6 +106,11 @@ class Rocket:
             return True
 
         return False
+
+    def check_ground_collision(self):
+        # if self.position[1] > self.simulation.height: # TODO fix to use global height
+        if self.position[1] > 600:
+            return True
     def check_collision_with_building(self, building):
         # Проверяем столкновение с зданием
         bx, by, bw, bh = building  # Координаты и размеры здания

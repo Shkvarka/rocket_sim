@@ -1,4 +1,6 @@
-from random import random
+import random
+
+from RocketSolution import AttackRocketSolution
 
 
 class LaunchPoint:
@@ -12,6 +14,8 @@ class LaunchPoint:
 
         self.load_rockets()
 
+        self.attackSolutionFinder = AttackRocketSolution()
+
     def load_rockets(self):
         for rocket in self.arsenal:
             rocket.set_launching_point(self)
@@ -19,14 +23,18 @@ class LaunchPoint:
 
     def add_simulation(self, simulation):
         self.simulation = simulation
+        self.attackSolutionFinder.set_simulation(simulation)
 
     def launch_rocket(self):
+        loaded_rocket = None
+
         if self.launch_type == 'attacking':
             # Логика выбора режима запуска и параметров ракеты
-            mode = self.select_launch_mode()  # Выбор режима запуска
-            target, velocity, acceleration = self.calculate_launch_parameters(mode)
-            # new_rocket = Rocket(position=self.position, velocity=velocity, acceleration=acceleration, rocket_type='attacking')
-            new_rocket = self.arsenal.pop() if self.arsenal else None
+            if self.arsenal:
+                mode = self.select_launch_mode()  # Выбор режима запуска
+                loaded_rocket = self.arsenal.pop()
+                angle, trajectory = self.calculate_launch_parameters(mode, loaded_rocket)
+                loaded_rocket.set_angle(angle)
         elif self.launch_type == 'defense':
             # # Логика определения цели и параметров ракеты ПВО
             # target = self.detect_enemy_rocket()
@@ -35,42 +43,35 @@ class LaunchPoint:
             #     velocity, acceleration = self.calculate_intercept_parameters(target)
             #     new_rocket = self.arsenal.pop() if self.arsenal else None
             #     # new_rocket = Rocket(position=self.position, velocity=velocity, acceleration=acceleration)
-            new_rocket = self.arsenal.pop() if self.arsenal else None
+            loaded_rocket = self.arsenal.pop() if self.arsenal else None
 
-        if new_rocket:
-            self.simulation.rockets.append(new_rocket)  # Добавление ракеты в симуляцию
+        if loaded_rocket:
+            self.simulation.rockets.append(loaded_rocket)  # Добавление ракеты в симуляцию
 
     def select_launch_mode(self):
         # Логика выбора режима запуска
         # Может быть случайным или основываться на какой-либо стратегии
-        return 0
+        return 'precise'
 
-    def calculate_launch_parameters(self, mode):
-        target = velocity = acceleration = 0
+    def calculate_launch_parameters(self, mode, loaded_rocket):
         # Расчет параметров запуска в зависимости от выбранного режима
         if mode == 'precise':
             # Расчет для точного попадания в здание
             target = self.select_target()  # Выбор цели (здания)
-            velocity, acceleration = self.calculate_trajectory(target)
-            return target, velocity, acceleration
-            pass
+            angle, trajectory = self.attackSolutionFinder.calculate_launch_parameters(loaded_rocket, target)
+            return angle, trajectory
         elif mode == 'near_miss':
             # Расчет для прохождения мимо здания
             pass
         elif mode == 'random':
             # Случайный выбор параметров
             pass
-        return target, velocity, acceleration
+        return None
 
     def select_target(self):
         # Выбор случайного здания в качестве цели
-        return random.choice(self.simulation.buildings)
-
-    def calculate_trajectory(self, target):
-        # Расчет траектории для точного попадания в цель
-        # Это может потребовать расчета начальной скорости и угла запуска
-        # Учитываем положение точки запуска, положение цели, гравитацию и т.д.
-        return 0, 0
+        random.shuffle(self.simulation.buildings_to_destroy)
+        return [(self.simulation.buildings_to_destroy.pop())]
 
     def update(self, time_delta):
         # Обновление времени с последнего запуска

@@ -1,15 +1,20 @@
+import copy
+
 import pygame
 
 from launch_point import LaunchPoint
+
+GLOBAL_TIME_STEP = 0.1
 
 
 class Simulation:
     def __init__(self, debug_mode=False, width=800, height=600):
         self.debug_mode = debug_mode
         pygame.font.init()  # Инициализация модуля шрифтов
-        self.font = pygame.font.Font(None, 18)  # Создание объекта шрифта
+        # self.font = pygame.font.Font(None, 18)  # Создание объекта шрифта
         self.rockets = []
-        self.buildings = [(200, 550, 50, 50), (400, 530, 70, 70), (600, 560, 40, 40)]  # Примеры зданий (x, y, width, height)
+        self.buildings = [(200, 550, 50, 50), (400, 530, 70, 70), (900, 560, 40, 40)]  # Примеры зданий (x, y, width, height)
+        self.buildings_to_destroy = copy.copy(self.buildings)
         self.launch_points = []
         self.width = width
         self.height = height
@@ -18,7 +23,8 @@ class Simulation:
 
     def draw_text(self, text, position, color=(0, 0, 0)):
         # Рендер текста
-        text_surface = self.font.render(text, True, color)
+        # text_surface = self.font.render(text, True, color)
+        text_surface = pygame.font.Font(None, 18).render(text, True, color)
         self.screen.blit(text_surface, position)
 
     def add_rocket(self, rocket):
@@ -41,8 +47,8 @@ class Simulation:
         for building in self.buildings:
             pygame.draw.rect(self.screen, (128, 128, 128), pygame.Rect(*building))  # Здания
 
-        for launch_point in self.launch_points:
-            launch_point.update(1)
+        # for launch_point in self.launch_points:
+        #     launch_point.update(1)
 
         if self.debug_mode:
             self.draw_text(f"game ticks: {pygame.time.get_ticks()}", (280, 0), (0, 0, 255))
@@ -89,10 +95,16 @@ class Simulation:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:  # Проверяем, нажата ли клавиша Esc
+                    running = False
 
             current_time = pygame.time.get_ticks()
             if current_time - start_time > duration * 1000:  # Преобразуем секунды в миллисекунды
                 running = False
+
+            for launch_point in self.launch_points:
+                launch_point.update(1)
 
             # Проверка столкновений между ракетами
             for i in range(len(self.rockets)):
@@ -106,14 +118,14 @@ class Simulation:
             for rocket in self.rockets:
                 if rocket.rocket_type == 'attacking' and not rocket.is_destroyed:
                     for building in self.buildings:
-                        if self.check_collision_with_building(rocket, building):
+                        if rocket.check_collision_with_building(building) or rocket.check_ground_collision():
                             rocket.destroy()
                             break  # Выходим из цикла после столкновения
 
             for rocket in self.rockets:
-                rocket.update(1)  # Предполагаем фиксированный шаг времени
+                rocket.update(GLOBAL_TIME_STEP)  # Предполагаем фиксированный шаг времени
 
             self.display_state()
-            pygame.time.delay(100)  # Задержка для уменьшения скорости анимации
+            pygame.time.delay(10)  # Задержка для уменьшения скорости анимации
 
         pygame.quit()
